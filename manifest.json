@@ -1,0 +1,44 @@
+{
+    "manifest_version": 3,
+    "name": "ScholarJournal",
+    "version": "1.1.0",
+    "description": "Display journal metrics and rankings on Google Scholar search results and researcher profiles.",
+    "permissions": [
+        "storage"
+    ],
+    "host_permissions": [
+        "https://api.crossref.org/*"
+    ],
+    "background": {
+        "service_worker": "background.js"
+    },
+    "action": {
+        "default_title": "ScholarJournal",
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "https://scholar.google.com/*"
+            ],
+    "js": [
+        "journals.js",
+        "matcher.js",
+        "parser.js",
+        "settings.js",
+        "export.js",
+        "filters.js",
+        "profile_loader.js",
+        "profile_cache.js",
+        "analytics.js",
+        "analytics_ui.js",
+        "content.js"
+    ],
+    "css": [
+        "style.css",
+        "analytics.css"
+    ],
+            "run_at": "document_idle"
+        }
+    ]
+}

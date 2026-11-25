@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Journal Matcher Test</title>
+</head>
+<body>
+    <h2>Journal Matching Test</h2>
+    <input id="query" style="width:450px;padding:8px" placeholder="Enter journal name or ISSN">
+    <button id="search">Match</button>
+    <pre id="output"></pre>
+    <script src="journals.js"></script>
+    <script src="matcher.js"></script>
+    <script>
+        console.table(JournalMatcher.stats());
+
+        function search() {
+            const query = document.getElementById("query").value.trim();
+            const result = /^\d{4}-?\d{3}[\dX]$/i.test(query)
+                ? JournalMatcher.matchISSN(query)
+                : JournalMatcher.matchName(query);
+            document.getElementById("output").textContent =
+                JSON.stringify(result, null, 2);
+        }
+
+        document.getElementById("search").onclick = search;
+        document.getElementById("query").onkeydown = e => {
+            if (e.key === "Enter") search();
+        };
+    </script>
+</body>
+</html>
