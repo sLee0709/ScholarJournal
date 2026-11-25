@@ -1,5 +1,7 @@
 # ScholarJournal
 
+[English](README.md) | [中文版](README.zh-CN.md)
+
 **A Chrome extension for journal metrics, publication filtering, and researcher publication analytics on Google Scholar.**
 
 ScholarJournal is a lightweight research assistance tool designed to enrich Google Scholar with journal-level bibliometric information and interactive publication analysis. It helps researchers explore scientific literature, identify publication venues, filter publications by journal metrics, export bibliographic data, and analyze researchers' publication records.
@@ -36,6 +38,8 @@ ScholarJournal employs multiple complementary matching strategies:
 - Candidate identification for truncated journal names
 
 Local matching and remote metadata retrieval are processed independently, allowing locally matched journal information to appear without waiting for external API requests.
+
+**Performance note:** Journal identification and researcher profile analysis may occasionally take longer, especially when many publications require Crossref metadata retrieval, because ScholarJournal deliberately limits request rates and concurrency to comply with Crossref API usage limits.
 
 Uncertain matches are not assigned definitive journal metrics.
 
