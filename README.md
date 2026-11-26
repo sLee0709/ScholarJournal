@@ -2,166 +2,107 @@
 
 [English](README.md) | [中文版](README.zh-CN.md)
 
-**A Chrome extension for journal metrics, publication filtering, and researcher publication analytics on Google Scholar.**
+**A Chrome extension for journal metrics, publication filtering, CSV export, and researcher publication analytics on Google Scholar.**
 
-ScholarJournal is a lightweight research assistance tool designed to enrich Google Scholar with journal-level bibliometric information and interactive publication analysis. It helps researchers explore scientific literature, identify publication venues, filter publications by journal metrics, export bibliographic data, and analyze researchers' publication records.
-
-ScholarJournal follows a local-first architecture. Journal identification is primarily performed using a locally generated journal database, with Crossref metadata retrieval as a fallback when local matching is insufficient.
-
-No dedicated backend server is required.
+ScholarJournal enriches Google Scholar with journal-level bibliometric information and interactive publication analysis. Its local-first architecture uses a user-provided journal database and retrieves bibliographic metadata from Crossref when local matching is insufficient. No dedicated backend server is required.
 
 ## Features
 
 ### Journal Metrics
 
-Display journal information directly on Google Scholar search results and researcher profile pages:
-
-- Journal name
-- Journal Impact Factor (JIF)
-- Journal Citation Reports (JCR) quartile
-- JIF percentile-based top percentage
-- Five-year Impact Factor
-- Journal Citation Indicator (JCI)
-- Journal category ranking
-
-Journal metrics are displayed using color gradients to facilitate visual comparison. Detailed journal information, including ISSN, eISSN, publisher, and category-specific rankings, is available through an interactive information dialog.
+Display journal names, Journal Impact Factors (JIF), JCR quartiles, percentile-based top percentages, five-year JIF, Journal Citation Indicators (JCI), and category rankings on search results and researcher profiles. Color gradients facilitate comparison; an information dialog provides ISSN, eISSN, publisher and category-specific details.
 
 ### Intelligent Journal Identification
 
-ScholarJournal employs multiple complementary matching strategies:
+- Exact and normalized journal names, abbreviations, ISSN and eISSN matching.
+- DOI and ISSN extraction from supported publication URLs.
+- Candidate identification for truncated journal names.
+- Crossref retrieval by DOI, title, and bibliographic query when local matching is insufficient.
+- Context-aware verification using title, publication year, venue and available author information.
+- Verification of explicitly truncated titles when sufficient supporting evidence exists.
+- Disambiguation of same-title publications, including different publication versions.
+- Diagnostic reasons for unresolved or ambiguous results.
 
-- Exact and normalized journal name matching
-- Journal abbreviation matching
-- ISSN and eISSN matching
-- DOI and ISSN extraction from publication URLs
-- Crossref metadata retrieval using DOI or publication title
-- Candidate identification for truncated journal names
+Local matches are displayed independently of remote requests. Uncertain results are not assigned definitive journal metrics.
 
-Local matching and remote metadata retrieval are processed independently, allowing locally matched journal information to appear without waiting for external API requests.
+### Crossref API Access
 
-**Performance note:** Journal identification and researcher profile analysis may occasionally take longer, especially when many publications require Crossref metadata retrieval, because ScholarJournal deliberately limits request rates and concurrency to comply with Crossref API usage limits.
+Both access modes are free and use the same metadata cache and identification logic.
 
-Uncertain matches are not assigned definitive journal metrics.
+| Setting | Public Pool | Polite Pool |
+|---|---|---|
+| Account / API key | Not required | Not required |
+| Contact email | Not required | Required |
+| Default DOI request interval | 250 ms | 120 ms |
+| Default title request interval | 1100 ms | 380 ms |
+| Configured maximum concurrency | 1 | 3 |
+
+Public Pool is the default. To enable Polite Pool, open the extension popup, locate **Crossref API Access**, enter a valid contact email, and click **Connect to Polite Pool**. Enhanced scheduling is enabled after pool confirmation. Click **Disconnect** to return to Public Pool. This is not account authentication and does not require a password or email verification.
+
+The intervals above are extension defaults, not guaranteed API throughput. The scheduler adjusts limits according to response headers and applies backoff when necessary.
+
+**Performance note:** Remote identification may take several minutes for large researcher profiles because Crossref request limits, response latency, retries, fallback queries and cache availability affect processing time. Polite Pool permits higher throughput but does not guarantee a specific speedup.
+
+See [Crossref API access and authentication](https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/).
 
 ### Publication Filtering
 
-Filter publications directly on Google Scholar search results and researcher profile pages using:
-
-- Minimum and maximum Impact Factor
-- Multiple JCR quartiles
-- Journal name or abbreviation
-- Inclusion or exclusion of publications with missing metrics
-
-Multiple filtering conditions can be combined. Filtering operates on currently loaded publications without modifying Google Scholar's original search query.
+Filter loaded records by minimum and maximum IF, multiple JCR quartiles, journal name or abbreviation, and inclusion of records with missing metrics. Filters can be combined without changing the original Google Scholar query.
 
 ### CSV Export
 
-Export currently loaded or filtered publications to CSV files, including:
-
-- Publication title, authors, publication year, and citation count
-- DOI and publication URL, when available
-- Journal name, abbreviation, ISSN, eISSN, and publisher
-- JIF, JCR quartile, percentile, five-year JIF, and JCI
-- Category rankings and detailed category information
-- Publication type and matching status
-
-CSV files are encoded in UTF-8 with BOM for compatibility with Excel, R, Python, and other data analysis tools.
+Export loaded or filtered publications, including titles, authors, years, citations, available DOI and URLs, journal names and identifiers, publisher, journal metrics, category details, publication type and matching status. CSV uses UTF-8 with BOM for compatibility with Excel, R and Python.
 
 ### Researcher Publication Analytics
 
-ScholarJournal provides a dedicated interactive analytics dashboard on Google Scholar researcher profile pages.
-
-Unlike analyses restricted to the initially displayed publications, ScholarJournal attempts to load the complete public publication list of a researcher before performing analysis.
-
-The dashboard supports:
+The dashboard attempts to collect the complete public publication list rather than restricting analysis to the initially displayed records.
 
 **Global analysis filters**
-
-- Entire publication history
-- Publications within the last 3, 5, or 10 years
-- Custom publication year ranges
-- Top N most cited publications
-- Top percentage of publications ranked by citations
-- Ranking by cumulative citations or approximate citations per year
-- Single or multiple journal selection
-- Impact Factor ranges
-- JCR quartiles
-- Citation count ranges
-- Publication types
+- All years, last 3/5/10 years, or a custom year range.
+- Top N or top percentage by total citations or approximate annual citations.
+- Single or multiple journals, IF range, JCR quartiles, citation range and publication types.
 
 **Overview**
+- Publication and unique journal counts, total citations, JCR matching coverage and Q1 proportion.
+- Mean, median and maximum IF; annual publication trends; JCR and IF distributions; annual mean of current IF; publication type distribution.
 
-- Total publications and unique journals
-- Total citations
-- Journal database matching coverage
-- Q1 publication proportion
-- Mean, median, and maximum Impact Factor
-- Annual publication trends
-- JCR quartile distribution
-- Impact Factor distribution
-- Annual distribution of current journal metrics
-- Publication type distribution
+**Journals**
+- Journal-level publication counts, citation statistics, IF and quartiles.
+- Most frequent journals, annual publication trends and interactive journal-specific analysis.
 
-**Journal Analysis**
+**Citations**
+- Citation distribution and concentration curves.
+- Citation contributions of top 10/20 papers and top 1%/10% papers.
+- Rankings by total or approximate annual citations.
 
-- Most frequently published journals
-- Journal-specific publication counts
-- Journal-specific citation statistics
-- Journal Impact Factors and quartiles
-- Annual publication trends for individual journals
-- Interactive journal selection and analysis
+**Papers**
+- Search, sorting, pagination and CSV export of selected publications or table search results.
+- Independent publication type, identification status and JCR availability.
+- Filters for identification and JCR status; diagnostic information on hover and searchable verification reasons.
+- Distinction between verified, locally matched, pending, deferred, ambiguous, unresolved and API-error records.
 
-**Citation Analysis**
-
-- Citation count distribution
-- Citation concentration curves
-- Citation contributions from highly cited publications
-- Top 10 and Top 20 most cited publications
-- Top 1% and Top 10% citation contributions
-- Rankings based on cumulative citations or citations per year
-
-**Publication Records**
-
-- Searchable and sortable publication tables
-- Publication title, author, and journal searches
-- Sorting by publication year, Impact Factor, quartile, and citations
-- Pagination for large publication datasets
-- CSV export of selected publication records
-
-Complete researcher profiles can be cached locally to avoid repeated data collection. Loading progress, cancellation, and incomplete-profile warnings are provided during profile preparation.
+A verified journal article may have no JCR metrics if the journal is absent from the installed database. Pending records are not equivalent to failed identification. Complete profiles can be cached locally; progress, cancellation, timeout and partial-analysis options are available.
 
 ### Customizable Settings
 
-The extension popup allows users to:
-
-- Enable or disable ScholarJournal
-- Select which journal metrics are displayed
-- Enable or disable publication filters
-- Hide unmatched journal labels
-- Enable or disable Crossref metadata retrieval
-- Manage the Crossref metadata cache
-- Restore default settings
-
-Settings are automatically saved locally and applied to supported Google Scholar pages.
+Enable or disable the extension, choose displayed metrics, toggle filters and Crossref lookup, hide unmatched labels, configure optional Polite Pool access, view request-rate and concurrency settings, manage the metadata cache, and restore defaults. Settings are saved locally.
 
 ## Installation
 
-ScholarJournal is currently distributed as source code and can be installed manually as an unpacked Chrome extension.
+Install ScholarJournal as an unpacked Chrome extension from source.
 
-### 1. Clone the Repository
+### 1. Download the Repository
 
 ```bash
 git clone https://github.com/sLee0709/ScholarJournal.git
 cd ScholarJournal
 ```
 
-Alternatively, download the repository as a ZIP archive from GitHub and extract it locally.
+Alternatively, download and extract the ZIP archive from GitHub.
 
 ### 2. Install Python Dependencies
 
-Python is required only for preparing the local journal database. It is not required for running the Chrome extension itself.
-
-Install the necessary Python packages:
+Python is needed only for database preparation, not for extension runtime.
 
 ```bash
 pip install pandas openpyxl
@@ -169,69 +110,41 @@ pip install pandas openpyxl
 
 ### 3. Prepare the Journal Database
 
-**Important: Neither the original journal metrics dataset nor the generated `journals.js` database is included in this repository.**
+**Neither the proprietary source dataset nor the generated `journals.js` is distributed with this repository.** Obtain journal metrics independently through authorized channels, such as institutional access to [Journal Citation Reports](https://jcr.clarivate.com/) via [Web of Science](https://www.webofscience.com/). Follow [Clarivate](https://clarivate.com/) licensing and data-use requirements.
 
-Users must obtain journal metrics data through legitimate and authorized sources, such as Clarivate's Journal Citation Reports (JCR), accessible through Web of Science or an authorized institutional subscription.
+#### 3.1 Input File
 
-Official resources:
-
-- [Web of Science](https://www.webofscience.com/)
-- [Journal Citation Reports](https://jcr.clarivate.com/)
-- [Clarivate](https://clarivate.com/)
-
-Users are responsible for ensuring that their acquisition, processing, and local use of journal metrics comply with the applicable licensing agreements and data usage policies.
-
-#### 3.1 Prepare the Input File
-
-The provided `convert.py` script expects an Excel file named:
-
-```text
-2025_journal_info.xlsx
-```
-
-Place the Excel file in the root directory of the ScholarJournal repository.
-
-If your dataset has a different filename, modify the `INPUT` variable in `convert.py` accordingly:
+Place `2025_journal_info.xlsx` in the project root, with one row per journal. For another filename, adjust `INPUT` in `convert.py`:
 
 ```python
 BASE = Path(__file__).resolve().parent
-INPUT = BASE / "2025_journal_info.xlsx"
+INPUT = BASE / "my_journal_data.xlsx"
 OUTPUT = BASE / "journals.js"
 ```
 
-For example:
+#### 3.2 Column Mapping
 
-```python
-INPUT = BASE / "my_journal_data.xlsx"
-```
-
-The input file should contain one row per journal record.
-
-#### 3.2 Configure Column Mapping
-
-The original conversion script was developed using an Excel dataset with Chinese column headers. If your dataset uses English headers or another naming convention, modify `COLUMN_MAP` in `convert.py` to match your actual Excel column names.
-
-The dictionary keys represent the original Excel column names, while the dictionary values represent the internal fields used by ScholarJournal.
+Adjust the keys of `COLUMN_MAP` to your Excel headers while preserving its internal field names (values). The original mapping uses Chinese headers:
 
 | Internal field | Description | Original Excel column |
 |---|---|---|
 | `journal` | Full journal name | 期刊名称 |
-| `abbreviation` | Journal abbreviation | 期刊缩写 |
+| `abbreviation` | Abbreviation | 期刊缩写 |
 | `issn` | Print ISSN | ISSN |
 | `eissn` | Electronic ISSN | eISSN |
 | `publisher` | Publisher | 出版商 |
 | `category` | Subject category | 学科类别 |
-| `jif` | Journal Impact Factor | 影响因子JIF |
+| `jif` | Impact Factor | 影响因子JIF |
 | `quartile` | JCR quartile | JIF分区 |
 | `percentile` | JIF percentile | JIF百分位 |
-| `rank` | JIF category rank | JIF排名 |
+| `rank` | Category rank | JIF排名 |
 | `jci` | Journal Citation Indicator | JCI |
-| `jif5` | Five-year Impact Factor | 5年影响因子 |
-| `jif_no_self` | JIF excluding journal self-citations | 去自引影响因子 |
-| `category_details` | Category-specific quartiles and rankings | 各学科分区详情 |
-| `year` | Journal metrics data year or release version | 数据年份 |
+| `jif5` | Five-year JIF | 5年影响因子 |
+| `jif_no_self` | JIF excluding self-citations | 去自引影响因子 |
+| `category_details` | Category-specific rankings | 各学科分区详情 |
+| `year` | Dataset year or release | 数据年份 |
 
-For example, if your Excel file contains English column headers, the mapping could be modified as follows:
+Example mapping for English headers (adjust to your dataset):
 
 ```python
 COLUMN_MAP = {
@@ -253,15 +166,9 @@ COLUMN_MAP = {
 }
 ```
 
-The English column names above are illustrative examples and may not correspond exactly to the headers in an official JCR export. Adjust them according to your own dataset.
+All mapped columns must exist. Use empty columns for unavailable metrics rather than invented values. Example English headers may differ from official exports.
 
-Keep the internal field names on the right-hand side unchanged to maintain compatibility with the extension.
-
-The current conversion script requires all columns specified in `COLUMN_MAP` to exist in the input Excel file. If certain metrics are unavailable, create the corresponding columns with empty values rather than entering artificial numerical values.
-
-Recommended value formats:
-
-| Field | Example format |
+| Field | Example |
 |---|---|
 | ISSN / eISSN | `1234-5678` |
 | JIF | `8.5` |
@@ -271,27 +178,15 @@ Recommended value formats:
 | Data year | `2025` |
 | Category details | `CATEGORY A(SCIE):Q1 5/100 \| CATEGORY B(SCIE):Q2 20/80` |
 
-For journals assigned to multiple JCR categories, users should define a consistent rule for the summary quartile, percentile, and rank fields. Category-specific information can be retained in `category_details`.
-
-If the required metrics are distributed across multiple files or category-level records, additional preprocessing may be necessary before running the conversion script.
+For journals in multiple categories, use a consistent rule for summary quartile, percentile and rank, retaining category-level details in `category_details`. Preprocessing may be required for multiple files or category-level records.
 
 #### 3.3 Generate `journals.js`
-
-Run:
 
 ```bash
 python convert.py
 ```
 
-The conversion script performs journal name normalization, ISSN normalization, duplicate detection, and conversion of the Excel dataset into a JavaScript-compatible database.
-
-The generated file should be:
-
-```text
-journals.js
-```
-
-The resulting database uses the following structure:
+The script normalizes names and ISSNs, detects duplicates and generates the database. Example structure (no proprietary metrics):
 
 ```javascript
 const JOURNALS = [
@@ -317,165 +212,110 @@ const JOURNALS = [
 ];
 ```
 
-The example above contains no actual proprietary journal metrics.
-
-Keep the generated `journals.js` file in the root directory of the repository.
-
-Both the source Excel file and the generated database are excluded from version control through `.gitignore`.
+Keep `journals.js` in the project root. The Excel source and generated database should remain excluded from version control via `.gitignore`.
 
 #### 3.4 Update the Journal Database
 
-To update journal metrics in the future:
-
-1. Obtain an updated dataset through an authorized source.
-2. Prepare the Excel file and adjust `COLUMN_MAP` if necessary.
-3. Update the dataset year or release information.
-4. Run `python convert.py` again.
-5. Reload the Chrome extension.
-
-The database year and journal record count displayed in `popup.html` should also be updated to reflect the new dataset.
+Obtain updated authorized data, adjust column mapping and dataset year, rerun `python convert.py`, update the database year and record count in `popup.html`, then reload the extension.
 
 ### 4. Load the Chrome Extension
 
-After generating `journals.js`:
-
-1. Open Google Chrome.
-2. Navigate to `chrome://extensions/`.
-3. Enable **Developer mode**.
-4. Click **Load unpacked**.
-5. Select the ScholarJournal project directory.
-6. Open or refresh Google Scholar.
-
-The extension should now display journal information alongside supported publications.
+1. Open Chrome and navigate to `chrome://extensions/`.
+2. Enable **Developer mode**.
+3. Click **Load unpacked**.
+4. Select the ScholarJournal project directory.
+5. Open or refresh Google Scholar.
 
 ## Usage
 
-### Google Scholar Search Results
+### Search Results
 
-Open [Google Scholar](https://scholar.google.com/) and perform a literature search as usual.
-
-ScholarJournal automatically identifies publication venues and displays the available journal metrics below each publication's bibliographic information.
-
-Click the information icon to view detailed journal metrics.
-
-Use the ScholarJournal Filters panel to filter publications by Impact Factor, JCR quartile, or journal name. The Export CSV function allows all currently loaded publications or filtered results to be exported.
+Search [Google Scholar](https://scholar.google.com/) normally. Available metrics appear automatically. Use the information icon for details, the Filters panel for selection, and Export CSV to download records.
 
 ### Researcher Profiles
 
-Open a Google Scholar researcher profile.
-
-ScholarJournal automatically annotates the displayed publications with journal metrics. Additional publications are processed when the Google Scholar publication list is expanded.
-
-Click **Publication Analytics** to open the researcher analytics dashboard.
-
-If a valid complete-profile cache is available, the dashboard can load the previously collected data directly. Otherwise, ScholarJournal attempts to collect the complete public publication list and identify the corresponding journals.
-
-Once the data are available, use the global analysis filters and navigate between the Overview, Journals, Citations, and Papers tabs.
+The extension annotates displayed and newly expanded publications. Click **Publication Analytics** to open the dashboard. A valid complete-profile cache is reused when available; otherwise the extension attempts to collect and identify the complete public publication list. Use the global filters and Overview, Journals, Citations and Papers tabs. Papers provides additional identification and JCR status filters.
 
 ### Extension Settings
 
-Click the ScholarJournal icon in the Chrome toolbar to open the settings popup.
-
-Display preferences and other settings can be modified without reinstalling the extension.
+Click the ScholarJournal toolbar icon to adjust display preferences, manage caches or configure Crossref access without reinstalling the extension.
 
 ## Technical Overview
 
-ScholarJournal is implemented using JavaScript, HTML, CSS, and Chrome Extension Manifest V3.
-
-The extension does not require a dedicated backend server or external JavaScript visualization libraries.
-
-The general journal identification workflow is:
+Implemented with JavaScript, HTML, CSS and Chrome Extension Manifest V3, without a dedicated backend or external JavaScript visualization libraries.
 
 ```text
-Google Scholar publication information
-                |
-                v
-      Publication metadata parsing
-                |
-                v
-       Local journal identification
-                |
-         Match available?
-           /          \
-         Yes           No
-          |             |
-          |      Crossref metadata retrieval
-          |             |
-          |      Local database matching
-          |             |
-          +-------------+
-                |
-                v
-     Journal metrics and publication tools
+Google Scholar metadata
+        |
+        v
+    Local matching
+      /     \
+   Matched   Unmatched
+     |          |
+     |     Crossref (Public / Polite)
+     |          |
+     |     Identity verification and disambiguation
+     |     (title, year, venue, authors)
+     |          |
+     |     Publication type and JCR matching
+     |          |
+     +----------+
+          |
+          v
+   Metrics, filters, export and analytics
 ```
 
-The main components include:
+A centralized service worker manages request scheduling, dynamic concurrency, rate limiting, retries and persistent caches. Title cache keys incorporate bibliographic context to reduce incorrect reuse across same-title, same-year publications. Verification outcomes and failure reasons are retained in analysis snapshots. Profile collection and remote identification can proceed independently.
 
-| File | Description |
+| File | Role |
 |---|---|
-| `convert.py` | Journal database preparation |
-| `journals.js` | Locally generated journal database (not distributed) |
-| `matcher.js` | Journal identification and matching |
-| `parser.js` | Google Scholar publication metadata parsing |
-| `background.js` | Crossref API requests, rate limiting, retries, and caching |
-| `content.js` | Core extension logic and page integration |
-| `settings.js` | Local settings management |
-| `popup.html`, `popup.js`, `popup.css` | Extension settings interface |
-| `filters.js` | Publication filtering |
-| `export.js` | CSV export |
-| `profile_loader.js` | Researcher profile collection |
-| `profile_cache.js` | Researcher profile caching |
-| `analytics.js` | Publication filtering and statistical analysis |
-| `analytics_ui.js`, `analytics.css` | Interactive researcher analytics dashboard |
-| `manifest.json` | Chrome extension configuration |
-| `test.html` | Journal matching test interface |
-
-Crossref requests are managed through a centralized background service worker with request queuing, rate limiting, automatic retries, and persistent metadata caching.
-
-Researcher profile collection and journal identification are performed independently, reducing the impact of network requests on local journal matching.
+| `convert.py` | Database preparation |
+| `journals.js` | Locally generated database (not distributed) |
+| `matcher.js` / `parser.js` | Matching and metadata parsing |
+| `background.js` | Crossref retrieval, verification, scheduling and cache |
+| `content.js` | Page integration and identification |
+| `settings.js` | Settings storage |
+| `popup.html` / `popup.js` / `popup.css` | Settings interface |
+| `filters.js` / `export.js` | Filtering and CSV export |
+| `profile_loader.js` / `profile_cache.js` | Profile collection and caching |
+| `analytics.js` | Statistical analysis |
+| `analytics_ui.js` / `analytics.css` | Interactive dashboard |
+| `manifest.json` | Extension configuration |
+| `style.css` | Page styles |
+| `test.html` | Matching test interface |
 
 ## Data Sources
 
-ScholarJournal integrates information from three sources:
+- **Google Scholar:** Public publication titles, authors, years, citations and links.
+- **Crossref:** Bibliographic metadata for identity verification; see the [REST API documentation](https://www.crossref.org/documentation/retrieve-metadata/rest-api/).
+- **User-provided database:** Independently authorized journal metrics and rankings.
 
-- **Google Scholar:** Publication titles, author information, publication years, citation counts, and publication links.
-- **Crossref:** External bibliographic metadata used to support journal identification.
-- **User-provided journal database:** Journal-level metrics and rankings obtained independently by the user.
-
-More information about Crossref and its REST API is available at:
-
-- [Crossref](https://www.crossref.org/)
-- [Crossref REST API Documentation](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)
-
-Crossref is used for bibliographic metadata retrieval, not for obtaining proprietary Journal Impact Factors or JCR rankings.
+Crossref is not used to obtain proprietary JIF or JCR rankings.
 
 ## Privacy
 
-ScholarJournal primarily processes and stores information locally within the user's browser.
+Preferences, metadata caches and profile caches are stored in Chrome local extension storage. When local matching is insufficient, publication titles or DOIs may be sent to Crossref; remote lookup can be disabled in settings. With optional Polite Pool access, the contact email is stored locally and sent to Crossref through the `mailto` parameter. Disconnecting or restoring defaults removes the saved email. ScholarJournal requires no user account, operates no dedicated data collection server, and does not intentionally collect Google account credentials.
 
-User preferences, Crossref metadata caches, and researcher profile caches are stored using Chrome's local extension storage.
+## Known Limitations
 
-When local journal identification is insufficient, publication titles or DOIs may be transmitted to the Crossref REST API for metadata retrieval. Users can disable Crossref metadata lookup through the extension settings.
+- Google Scholar metadata may be incomplete, truncated or non-standardized.
+- Crossref coverage is not comprehensive; some older or regional publications and records registered with other DOI agencies may be unavailable.
+- Same-title publications and different versions may remain ambiguous if supporting evidence is insufficient.
+- Identified journals may be absent from the local JCR database; missing metrics do not necessarily indicate identification failure.
+- Partial analyses may contain pending records; request limits and network latency may affect speed.
+- Metrics reflect the installed database, not historical publication-year JCR values. Journal metrics and citations are not direct measures of research quality.
 
-ScholarJournal does not require user registration, does not operate a dedicated data collection server, and does not intentionally collect Google account credentials.
+ScholarJournal prioritizes reliable identification over maximum coverage and leaves metrics unassigned when a match cannot be established reliably.
 
 ## Data Licensing and Disclaimer
 
-This repository distributes the ScholarJournal implementation and database preparation scripts. It does not distribute proprietary Journal Citation Reports datasets or journal metrics derived from restricted-access datasets.
-
-Users must independently obtain any required journal metrics through legitimate and authorized channels and comply with the relevant licensing agreements.
-
-The generated journal database should not be redistributed unless the user has the appropriate rights to do so.
+The repository distributes implementation code and database preparation scripts, not proprietary JCR datasets or restricted journal metrics. Users must obtain authorized data independently and comply with applicable licenses. Do not redistribute the generated database without appropriate rights.
 
 ## Contact and Feedback
 
-ScholarJournal was developed as a research assistance tool to improve literature exploration and publication analysis workflows.
+- Developer: Li Shen
+- GitHub: [sLee0709](https://github.com/sLee0709)
+- Repository: [ScholarJournal](https://github.com/sLee0709/ScholarJournal)
+- Bugs and suggestions: [GitHub Issues](https://github.com/sLee0709/ScholarJournal/issues)
 
-If you encounter any issues, have suggestions, or need assistance with preparing the journal database, please feel free to contact the developer through GitHub.
-
-- **Developer:** Li Shen
-- **GitHub:** [sLee0709](https://github.com/sLee0709)
-- **Repository:** [ScholarJournal](https://github.com/sLee0709/ScholarJournal)
-- **Bug reports and suggestions:** [GitHub Issues](https://github.com/sLee0709/ScholarJournal/issues)
-
-Feedback and suggestions from the research community are welcome.
+Feedback from the research community is welcome.
