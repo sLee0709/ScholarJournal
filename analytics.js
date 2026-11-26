@@ -79,12 +79,52 @@ const ScholarAnalytics = (() => {
     function getPublicationType(p) {
         const type = p.journalIdentity?.type;
         if (type === "journal-article") return "journal";
-        if (type === "proceedings-article") return "conference";
+        if (["proceedings-article", "proceedings"].includes(type)) return "conference";
         if (type === "posted-content") return "preprint";
-        if (["book", "book-chapter", "monograph"].includes(type)) return "book";
+        if (["book", "book-chapter", "book-section", "book-part", "book-series",
+            "book-set", "edited-book", "monograph", "reference-book",
+            "reference-entry"].includes(type)) return "book";
         if (type) return "other";
         if (p.journalMetrics) return "journal_inferred";
         return "unknown";
+    }
+
+    function getIdentificationStatus(p) {
+        const identity = p.journalIdentity;
+        if (["queued", "pending", "processing", "running"].includes(p.phase))
+            return "pending";
+        if (identity?.api_error) return "api_error";
+        if (identity?.remote_deferred || p.phase === "deferred") return "deferred";
+        if (identity?.article_verified) return "verified";
+        if (identity?.journal_verified || p.journalMetrics) return "local_verified";
+        if (identity?.verification_reason === "ambiguous" ||
+            identity?.status === "ambiguous") return "ambiguous";
+        if (!identity && p.phase !== "done") return "pending";
+        return "unresolved";
+    }
+
+    function getJCRStatus(p) {
+        const type = getPublicationType(p);
+        const identification = getIdentificationStatus(p);
+        if (p.journalMetrics) return "available";
+        if (["conference", "preprint", "book", "other"].includes(type))
+            return "not_applicable";
+        if (p.journalIdentity?.status === "not_in_database")
+            return "not_in_database";
+        if (identification === "pending") return "pending";
+        if (identification === "deferred") return "deferred";
+        if (identification === "api_error") return "api_error";
+        return "unknown";
+    }
+
+    function getVerificationReason(p) {
+        const identity = p.journalIdentity;
+        if (identity?.api_error) return identity.api_error;
+        if (identity?.verification_reason) return identity.verification_reason;
+        const status = getIdentificationStatus(p);
+        if (status === "local_verified") return "local_match";
+        if (status === "verified") return "verified";
+        return status;
     }
 
     function getCitationsPerYear(p) {
@@ -385,6 +425,7 @@ const ScholarAnalytics = (() => {
         DEFAULT_FILTERS, CURRENT_YEAR, QUARTILES, IF_BINS,
         getJournal, getJournalKey, getQuartile, getIF,
         getPublicationType, getCitationsPerYear,
+        getIdentificationStatus, getJCRStatus, getVerificationReason,
         sortByCitations, filterPublications,
         summarizeOverview, summarizeQuartiles, summarizeIF,
         summarizeYears, summarizeJournals, summarizeCitations,

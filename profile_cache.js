@@ -1,5 +1,5 @@
 const ScholarProfileCache = (() => {
-    const PREFIX = "scholarjournal:profile:v1:";
+    const PREFIX = "scholarjournal:profile:v3:";
     const TTL = 24 * 60 * 60 * 1000;
     const MAX_PROFILES = 20;
     const MAX_BYTES = 3 * 1024 * 1024;
@@ -32,7 +32,10 @@ const ScholarProfileCache = (() => {
             type: m?.type || null,
             publisher: m?.publisher || j?.publisher || null,
             api_error: result.api_error || null,
-            remote_deferred: Boolean(result.remote_deferred)
+            remote_deferred: Boolean(result.remote_deferred),
+            verification_reason: result.verification_reason || null,
+            verification_evidence: result.verification_evidence || [],
+            title_match: result.title_match || null
         };
     }
 
@@ -65,7 +68,7 @@ const ScholarProfileCache = (() => {
             p.phase === "deferred" || p.journalIdentity?.remote_deferred
         ).length;
         return {
-            schemaVersion: 1,
+            schemaVersion: 2,
             profile: profileData.profile,
             complete: profileData.complete,
             evidence: profileData.evidence,
@@ -86,7 +89,7 @@ const ScholarProfileCache = (() => {
         const key = getKey(profileId);
         const data = await chrome.storage.local.get(key);
         const entry = data[key];
-        if (!entry || entry.schemaVersion !== 1) return null;
+        if (!entry || entry.schemaVersion !== 2) return null;
         if (isExpired(entry) && !allowExpired) return null;
         return {
             ...entry,

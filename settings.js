@@ -12,15 +12,30 @@ const ScholarSettings = (() => {
         showDetails: true,
         showFilters: true,
         hideUnmatched: false,
-        enableCrossref: true
+        enableCrossref: true,
+        crossrefEmail: ""
     });
 
+    function normalizeEmail(value = "") {
+        return typeof value === "string" ? value.trim() : "";
+    }
+
+    function isValidEmail(value) {
+        const email = normalizeEmail(value);
+        return email.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
     function normalize(settings = {}) {
-        return Object.fromEntries(
-            Object.entries(DEFAULTS).map(([key, value]) => [
-                key, typeof settings?.[key] === "boolean" ? settings[key] : value
-            ])
+        const config = Object.fromEntries(
+            Object.entries(DEFAULTS).map(([key, value]) => {
+                const input = settings?.[key];
+                return [key, typeof input === typeof value ? input : value];
+            })
         );
+        config.crossrefEmail = normalizeEmail(config.crossrefEmail);
+        if (!isValidEmail(config.crossrefEmail))
+            config.crossrefEmail = "";
+        return config;
     }
 
     async function load() {
@@ -52,5 +67,8 @@ const ScholarSettings = (() => {
         return () => chrome.storage.onChanged.removeListener(listener);
     }
 
-    return {KEY, DEFAULTS, load, save, update, reset, subscribe};
+    return {
+        KEY, DEFAULTS, load, save, update, reset,
+        subscribe, normalizeEmail, isValidEmail
+    };
 })();

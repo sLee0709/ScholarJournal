@@ -22,6 +22,18 @@ const ScholarJournal = (() => {
             .replace(/[^\p{L}\p{N}]/gu, "");
     }
 
+    function matchTitle(candidateTitle, scholarTitle) {
+        const candidate = normalizeTitle(candidateTitle);
+        const source = normalizeTitle(scholarTitle);
+        if (!candidate || !source) return "none";
+        if (candidate === source) return "exact";
+        const truncated = /(?:…|\.{3,})\s*$/.test(scholarTitle || "");
+        if (truncated && source.length >= 40 &&
+            candidate.length > source.length && candidate.startsWith(source))
+            return "truncated";
+        return "none";
+    }
+
     function buildResult(article, status, method, options = {}) {
         return {
             id: article.id,
@@ -37,6 +49,9 @@ const ScholarJournal = (() => {
             journal: null,
             metadata: null,
             candidates: [],
+            verification_reason: null,
+            verification_evidence: [],
+            title_match: null,
             ...options
         };
     }
@@ -68,26 +83,32 @@ const ScholarJournal = (() => {
     function matchCrossref(article, response) {
         if (!response?.success || !response.verified || !response.match) return null;
         const m = response.match;
-        if (!m.title || normalizeTitle(m.title) !== normalizeTitle(article.title)) return null;
+        const titleMatch = matchTitle(m.title, article.title);
+        if (titleMatch === "none") return null;
+        if (titleMatch === "truncated" && response.method === "crossref_title" &&
+            response.reason !== "verified") return null;
+
         const options = {
             article_verified: true,
             metadata: m,
-            doi: m.doi || article.doi
+            doi: m.doi || article.doi,
+            verification_reason: response.reason || "verified",
+            verification_evidence: response.evidence || [],
+            title_match: titleMatch
         };
-        if (m.type !== "journal-article") {
+        if (m.type !== "journal-article")
             return buildResult(article, "non_journal", response.method, options);
-        }
+
         let match = JournalMatcher.matchISSN(m.issn || []);
-        if (!match.verified && match.candidates.length > 1) {
+        if (!match.verified && match.candidates.length > 1)
             return buildResult(article, "ambiguous", response.method, {
-                ...options,
-                candidates: match.candidates
+                ...options, candidates: match.candidates
             });
-        }
         if (!match.verified && m.journal)
             match = JournalMatcher.matchName(m.journal);
         if (!match.verified && !match.candidates.length && m.abbreviation)
             match = JournalMatcher.matchName(m.abbreviation);
+
         return buildResult(article, match.verified ? "matched" : "not_in_database", response.method, {
             ...options,
             journal_verified: Boolean(m.journal || match.verified),
@@ -106,15 +127,21 @@ const ScholarJournal = (() => {
         if (nameMatch.verified) return localResult(article, nameMatch);
         return null;
     }
-    function remoteFallback(article, error = null, deferred = false) {
+    function remoteFallback(article, error = null, deferred = false, response = null) {
         const match = JournalMatcher.matchName(article.journal || "");
+        const reason = deferred ? "deferred" :
+            error ? "api_error" :
+            response?.reason || "unresolved";
         return buildResult(
             article,
             match.candidates.length ? "unverified" : "unmatched",
-            match.method, {
+            match.method,
+            {
                 candidates: match.candidates,
                 api_error: error,
-                remote_deferred: deferred
+                remote_deferred: deferred,
+                verification_reason: reason,
+                verification_evidence: response?.evidence || []
             }
         );
     }
@@ -123,15 +150,17 @@ const ScholarJournal = (() => {
         if (!canUseCrossref(article))
             return remoteFallback(article, null, true);
 
+        let lastResponse = null;
         if (article.doi) {
             const response = await requestCrossref({
                 type: "CROSSREF_DOI",
                 doi: article.doi
             });
+            lastResponse = response;
             const result = matchCrossref(article, response);
             if (result) return result;
             if (!response?.success)
-                return remoteFallback(article, response?.error || "DOI lookup failed");
+                return remoteFallback(article, response?.error || "DOI lookup failed", false, response);
         }
         if (!canUseCrossref(article))
             return remoteFallback(article, null, true);
@@ -140,14 +169,22 @@ const ScholarJournal = (() => {
             const response = await requestCrossref({
                 type: "CROSSREF_TITLE",
                 title: article.title,
-                year: article.year
+                year: article.year,
+                journal: article.journal || "",
+                publication: article.metadata || article.publication || "",
+                authors: article.authors || ""
             });
+            lastResponse = response;
             const result = matchCrossref(article, response);
             if (result) return result;
             if (!response?.success)
-                return remoteFallback(article, response?.error || "Title lookup failed");
+                return remoteFallback(article, response?.error || "Title lookup failed", false, response);
+            if (response.verified)
+                return remoteFallback(article, null, false, {
+                    ...response, reason: "content_verification_failed"
+                });
         }
-        return remoteFallback(article);
+        return remoteFallback(article, null, false, lastResponse);
     }
 
     async function identifyArticle(article) {

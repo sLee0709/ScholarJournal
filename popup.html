@@ -65,6 +65,49 @@
             <p class="setting-hint">Use Crossref when local journal matching is unavailable.</p>
         </section>
 
+        <section class="section crossref-section">
+            <div class="crossref-heading">
+                <h2>Crossref API Access</h2>
+                <span id="crossrefPoolBadge" class="crossref-pool-badge public">Public Pool</span>
+            </div>
+
+            <div id="crossrefDisconnected">
+                <div class="crossref-email-row">
+                    <input type="email" id="crossrefEmailInput" placeholder="Contact email address" maxlength="254" autocomplete="email" aria-label="Crossref contact email">
+                </div>
+                <button type="button" id="crossrefConnect" class="btn crossref-connect-btn" disabled>
+                    Connect to Polite Pool
+                </button>
+                <p class="crossref-hint">Free enhanced API access. No account or API key required.</p>
+            </div>
+
+            <div id="crossrefConnected" hidden>
+                <div class="crossref-connected-info">
+                    <span class="crossref-connected-icon">✓</span>
+                    <strong>Enhanced API access enabled</strong>
+                </div>
+                <div id="crossrefConnectedEmail" class="crossref-connected-email"></div>
+                <button type="button" id="crossrefDisconnect" class="btn crossref-disconnect-btn">
+                    Disconnect
+                </button>
+            </div>
+
+            <div class="crossref-api-stats">
+                <div class="crossref-stat">
+                    <span>Title request rate</span>
+                    <strong id="crossrefTitleRate">0.91 /s</strong>
+                </div>
+                <div class="crossref-stat">
+                    <span>Max concurrency</span>
+                    <strong id="crossrefConcurrency">1</strong>
+                </div>
+            </div>
+
+            <div id="crossrefStatus" class="crossref-status" role="status" aria-live="polite"></div>
+            <p class="crossref-hint">Your email is stored locally and sent to Crossref with metadata requests.</p>
+            <a class="crossref-doc-link" href="https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/" target="_blank" rel="noopener noreferrer">Learn more about Crossref API access</a>
+        </section>
+
         <section class="section database-section">
             <h2>Database & Cache</h2>
             <div class="data-row"><span>JCR database</span><strong id="databaseYear">2025</strong></div>

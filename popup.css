@@ -266,3 +266,169 @@ footer {
 .footer-dot {
     color: #b3becb;
 }
+.crossref-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.crossref-heading h2 {
+    margin: 0;
+}
+.crossref-pool-badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+.crossref-pool-badge.public {
+    background: #edf1f6;
+    color: #687585;
+}
+.crossref-pool-badge.polite {
+    background: #e6f4ea;
+    color: #137333;
+}
+.crossref-pool-badge.connecting {
+    background: #e8f0fe;
+    color: #1967d2;
+}
+.crossref-email-row {
+    margin-bottom: 8px;
+}
+#crossrefEmailInput {
+    width: 100%;
+    height: 33px;
+    padding: 6px 10px;
+    border: 1px solid #d7dfe8;
+    border-radius: 6px;
+    background: #fff;
+    color: #37465a;
+    font: 12px Arial, sans-serif;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s;
+}
+#crossrefEmailInput:focus {
+    border-color: #7396c2;
+    box-shadow: 0 0 0 2px rgba(115,150,194,.12);
+}
+#crossrefEmailInput::placeholder {
+    color: #9ba7b5;
+}
+#crossrefEmailInput:disabled {
+    background: #f5f7fa;
+    cursor: not-allowed;
+}
+.crossref-connect-btn,
+.crossref-disconnect-btn {
+    width: 100%;
+    min-height: 31px;
+}
+.crossref-connect-btn {
+    background: #315681;
+    border-color: #315681;
+    color: #fff;
+}
+.crossref-connect-btn:hover:not(:disabled) {
+    background: #24466e;
+    border-color: #24466e;
+}
+.crossref-connect-btn:disabled {
+    opacity: .45;
+    cursor: not-allowed;
+}
+.crossref-connected-info {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #137333;
+    font-size: 12px;
+}
+.crossref-connected-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: #e6f4ea;
+    color: #137333;
+    font-size: 12px;
+    font-weight: 700;
+}
+.crossref-connected-email {
+    margin: 5px 0 10px 25px;
+    color: #687585;
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+.crossref-disconnect-btn {
+    color: #b3261e;
+}
+.crossref-disconnect-btn:hover:not(:disabled) {
+    background: #fce8e6;
+    border-color: #e8b5b1;
+}
+.crossref-api-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+}
+.crossref-stat {
+    padding: 10px 12px;
+    border: 1px solid #e4e9f0;
+    border-radius: 6px;
+    background: #f8fafc;
+}
+.crossref-stat span {
+    display: block;
+    color: #788596;
+    font-size: 10px;
+}
+.crossref-stat strong {
+    display: block;
+    margin-top: 3px;
+    color: #315681;
+    font-size: 19px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+.crossref-hint {
+    margin: 7px 0 0;
+    color: #8491a3;
+    font-size: 10px;
+    line-height: 1.5;
+}
+.crossref-status {
+    margin-top: 8px;
+    color: #39875a;
+    font-size: 11px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+}
+.crossref-status:empty {
+    display: none;
+}
+.crossref-status.error {
+    color: #b3261e;
+}
+.crossref-status.loading {
+    color: #1967d2;
+}
+.crossref-doc-link {
+    display: inline-block;
+    margin-top: 6px;
+    color: #315681;
+    font-size: 10px;
+    text-decoration: none;
+}
+.crossref-doc-link:hover {
+    text-decoration: underline;
+}
+.crossref-section [hidden] {
+    display: none !important;
+}

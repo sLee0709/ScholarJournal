@@ -1,9 +1,19 @@
 const Popup = (() => {
     const $ = id => document.getElementById(id);
-    const keys = Object.keys(ScholarSettings.DEFAULTS);
+    const keys = Object.keys(ScholarSettings.DEFAULTS)
+        .filter(key => typeof ScholarSettings.DEFAULTS[key] === "boolean");
     let settings = {...ScholarSettings.DEFAULTS};
     let saveQueue = Promise.resolve();
     let statusTimer = null;
+    let crossrefBusy = false;
+    let crossrefAccess = {
+        pool: "public",
+        confirmed: false,
+        email: "",
+        doiInterval: 250,
+        titleInterval: 1100,
+        maxConcurrent: 1
+    };
 
     function showStatus(message, error = false) {
         clearTimeout(statusTimer);
@@ -14,6 +24,12 @@ const Popup = (() => {
             el.textContent = "";
             el.classList.remove("error");
         }, 3000);
+    }
+
+    function showCrossrefStatus(message = "", type = "") {
+        const el = $("crossrefStatus");
+        el.textContent = message;
+        el.className = `crossref-status${type ? ` ${type}` : ""}`;
     }
 
     function interpolateColor(start, end, t) {
@@ -55,15 +71,9 @@ const Popup = (() => {
             preview.appendChild(empty);
             return;
         }
-        const jifColor = metricColor(
-            "#fce8e6", "#801710", Math.log1p(28.3) / Math.log1p(50)
-        );
-        const quartileColor = metricColor(
-            "#e6f4ea", "#137333", 1
-        );
-        const percentileColor = metricColor(
-            "#f3e8fd", "#50158a", 1 - Math.log1p(0.6) / Math.log1p(100)
-        );
+        const jifColor = metricColor("#fce8e6", "#801710", Math.log1p(28.3) / Math.log1p(50));
+        const quartileColor = metricColor("#e6f4ea", "#137333", 1);
+        const percentileColor = metricColor("#f3e8fd", "#50158a", 1 - Math.log1p(0.6) / Math.log1p(100));
         const metrics = [
             ["showJournal", "NATURE METHODS", "#e8f0fe", "#1967d2"],
             ["showJIF", "IF 28.3", jifColor.background, jifColor.color],
@@ -91,6 +101,34 @@ const Popup = (() => {
         }
     }
 
+    function renderCrossrefAccess() {
+        const configured = Boolean(settings.crossrefEmail);
+        const polite = configured &&
+            crossrefAccess.pool === "polite" &&
+            crossrefAccess.confirmed === true &&
+            crossrefAccess.email === settings.crossrefEmail;
+        const badge = $("crossrefPoolBadge");
+        badge.className = `crossref-pool-badge ${crossrefBusy ? "connecting" : polite ? "polite" : "public"}`;
+        badge.textContent = crossrefBusy ? "Updating..." : polite ? "Polite Pool" : "Public Pool";
+        $("crossrefDisconnected").hidden = polite;
+        $("crossrefConnected").hidden = !polite;
+        $("crossrefConnectedEmail").textContent = settings.crossrefEmail;
+        $("crossrefTitleRate").textContent =
+            `${(1000 / (crossrefAccess.titleInterval || 1100)).toFixed(2)} /s`;
+        $("crossrefConcurrency").textContent =
+            crossrefAccess.maxConcurrent || 1;
+        const available = settings.enabled && settings.enableCrossref;
+        $("crossrefEmailInput").disabled = crossrefBusy || !available;
+        $("crossrefConnect").disabled = crossrefBusy || !available ||
+            !ScholarSettings.isValidEmail($("crossrefEmailInput").value);
+        $("crossrefConnect").textContent =
+            crossrefBusy ? "Connecting..." : "Connect to Polite Pool";
+        $("crossrefDisconnect").disabled = crossrefBusy;
+        $("crossrefDisconnect").textContent =
+            crossrefBusy ? "Disconnecting..." : "Disconnect";
+        $("resetSettings").disabled = crossrefBusy;
+    }
+
     function applySettings() {
         for (const key of keys) {
             const el = $(key);
@@ -100,16 +138,18 @@ const Popup = (() => {
         }
         $("settingsPanel").classList.toggle("settings-disabled", !settings.enabled);
         renderPreview();
+        renderCrossrefAccess();
     }
 
-    function saveSettings() {
-        const snapshot = {...settings};
-        saveQueue = saveQueue.catch(() => {}).then(async () => {
-            await ScholarSettings.save(snapshot);
-        }).catch(error => {
+    function saveSettings(changes = {}) {
+        const patch = {...changes};
+        const task = saveQueue.catch(() => {}).then(() =>
+            ScholarSettings.update(patch)
+        );
+        saveQueue = task.catch(error => {
             showStatus(`Failed to save settings: ${error.message}`, true);
         });
-        return saveQueue;
+        return task;
     }
 
     function bindSettings() {
@@ -119,24 +159,127 @@ const Popup = (() => {
             el.addEventListener("change", () => {
                 settings[key] = el.checked;
                 applySettings();
-                saveSettings();
+                saveSettings({[key]: settings[key]}).catch(() => {});
             });
         }
     }
 
+    async function requestBackground(message) {
+        const response = await chrome.runtime.sendMessage(message);
+        if (!response?.success)
+            throw new Error(response?.error || "Unable to communicate with Crossref manager");
+        return response;
+    }
+
+    async function refreshCrossrefAccess() {
+        try {
+            const response = await requestBackground({
+                type: "CROSSREF_ACCESS_STATUS"
+            });
+            crossrefAccess = {
+                ...crossrefAccess,
+                ...response.access
+            };
+            renderCrossrefAccess();
+            return response;
+        } catch (error) {
+            crossrefAccess = {
+                pool: "public",
+                confirmed: false,
+                email: "",
+                doiInterval: 250,
+                titleInterval: 1100,
+                maxConcurrent: 1
+            };
+            renderCrossrefAccess();
+            showCrossrefStatus(`API status unavailable: ${error.message}`, "error");
+            return null;
+        }
+    }
+
+    async function connectCrossref() {
+        if (crossrefBusy || !settings.enabled || !settings.enableCrossref) return;
+        const email = ScholarSettings.normalizeEmail($("crossrefEmailInput").value);
+        if (!ScholarSettings.isValidEmail(email)) {
+            showCrossrefStatus("Please enter a valid contact email address.", "error");
+            return;
+        }
+        crossrefBusy = true;
+        renderCrossrefAccess();
+        showCrossrefStatus("Verifying Crossref API access...", "loading");
+        try {
+            await saveQueue;
+            const response = await requestBackground({
+                type: "CROSSREF_CONNECT",
+                email
+            });
+            if (response.access?.pool !== "polite" ||
+                response.access?.confirmed !== true)
+                throw new Error("Crossref Polite Pool could not be confirmed.");
+            settings.crossrefEmail = email;
+            crossrefAccess = response.access;
+            showCrossrefStatus("Polite Pool connection confirmed.");
+        } catch (error) {
+            settings.crossrefEmail = (await ScholarSettings.load()).crossrefEmail;
+            await refreshCrossrefAccess();
+            showCrossrefStatus(`Connection failed: ${error.message}`, "error");
+        } finally {
+            crossrefBusy = false;
+            applySettings();
+        }
+    }
+
+    async function disconnectCrossref() {
+        if (crossrefBusy) return;
+        crossrefBusy = true;
+        renderCrossrefAccess();
+        showCrossrefStatus("Disconnecting...", "loading");
+        try {
+            await saveQueue;
+            const response = await requestBackground({
+                type: "CROSSREF_DISCONNECT"
+            });
+            settings.crossrefEmail = "";
+            crossrefAccess = response.access;
+            $("crossrefEmailInput").value = "";
+            showCrossrefStatus("Disconnected. Public Pool is now active.");
+        } catch (error) {
+            await refreshCrossrefAccess();
+            showCrossrefStatus(`Disconnect failed: ${error.message}`, "error");
+        } finally {
+            crossrefBusy = false;
+            applySettings();
+        }
+    }
+
+    function bindCrossrefEvents() {
+        $("crossrefEmailInput").addEventListener("input", () => {
+            showCrossrefStatus();
+            renderCrossrefAccess();
+        });
+        $("crossrefEmailInput").addEventListener("keydown", event => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                connectCrossref();
+            }
+        });
+        $("crossrefConnect").addEventListener("click", connectCrossref);
+        $("crossrefDisconnect").addEventListener("click", disconnectCrossref);
+    }
+
     async function refreshCacheStats() {
         try {
-            const response = await chrome.runtime.sendMessage({
+            const response = await requestBackground({
                 type: "CROSSREF_STATS"
             });
-            if (!response?.success)
-                throw new Error(response?.error || "Unable to read cache");
             $("cacheEntries").textContent = Number(response.cacheEntries || 0).toLocaleString();
             $("cacheSize").textContent = `${Number(response.cacheMB || 0).toFixed(3)} MB`;
+            return true;
         } catch (error) {
             $("cacheEntries").textContent = "—";
             $("cacheSize").textContent = "—";
             showStatus(`Cache unavailable: ${error.message}`, true);
+            return false;
         }
     }
 
@@ -145,11 +288,9 @@ const Popup = (() => {
         button.disabled = true;
         button.textContent = "Clearing...";
         try {
-            const response = await chrome.runtime.sendMessage({
+            const response = await requestBackground({
                 type: "CROSSREF_CLEAR_CACHE"
             });
-            if (!response?.success)
-                throw new Error(response?.error || "Unable to clear cache");
             await refreshCacheStats();
             showStatus(`${response.removed || 0} cache entries removed`);
         } catch (error) {
@@ -161,10 +302,24 @@ const Popup = (() => {
     }
 
     async function resetSettings() {
-        settings = {...ScholarSettings.DEFAULTS};
-        applySettings();
-        await saveSettings();
-        showStatus("Default settings restored");
+        if (crossrefBusy) return;
+        crossrefBusy = true;
+        renderCrossrefAccess();
+        try {
+            await saveQueue;
+            await requestBackground({type: "CROSSREF_DISCONNECT"});
+            settings = await ScholarSettings.reset();
+            $("crossrefEmailInput").value = "";
+            await refreshCrossrefAccess();
+            showCrossrefStatus();
+            showStatus("Default settings restored");
+        } catch (error) {
+            settings = await ScholarSettings.load();
+            showStatus(`Failed to reset settings: ${error.message}`, true);
+        } finally {
+            crossrefBusy = false;
+            applySettings();
+        }
     }
 
     async function init() {
@@ -174,11 +329,16 @@ const Popup = (() => {
         } catch (error) {
             showStatus(`Failed to load settings: ${error.message}`, true);
         }
+        $("crossrefEmailInput").value = settings.crossrefEmail || "";
         applySettings();
         bindSettings();
+        bindCrossrefEvents();
         $("clearCache").addEventListener("click", clearCache);
         $("resetSettings").addEventListener("click", resetSettings);
-        await refreshCacheStats();
+        await Promise.allSettled([
+            refreshCacheStats(),
+            refreshCrossrefAccess()
+        ]);
     }
 
     return {init};

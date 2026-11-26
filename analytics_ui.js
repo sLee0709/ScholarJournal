@@ -16,6 +16,50 @@ const ScholarAnalyticsUI = (() => {
         Q4: "#e6f4ea",
         Unclassified: "#b8bec7"
     };
+
+    const PUBLICATION_TYPE_LABELS = {
+        journal: "Journal",
+        journal_inferred: "Journal (inferred)",
+        conference: "Conference",
+        preprint: "Preprint",
+        book: "Book",
+        other: "Other",
+        unknown: "Unknown"
+    };
+    const IDENTIFICATION_LABELS = {
+        verified: "Verified",
+        local_verified: "Local matched",
+        pending: "Pending",
+        deferred: "Deferred",
+        ambiguous: "Ambiguous",
+        unresolved: "Unresolved",
+        api_error: "API error"
+    };
+    const JCR_STATUS_LABELS = {
+        available: "Available",
+        not_in_database: "Not in database",
+        not_applicable: "Not applicable",
+        pending: "Pending",
+        deferred: "Deferred",
+        api_error: "API error",
+        unknown: "Unknown"
+    };
+    const VERIFICATION_REASON_LABELS = {
+        verified: "Article identity verified",
+        local_match: "Matched using the local journal database",
+        empty_title: "Publication title is missing",
+        no_candidates: "No Crossref candidates returned",
+        title_mismatch: "Candidate titles did not match",
+        year_mismatch: "Publication year did not match",
+        insufficient_title_evidence: "Insufficient evidence for truncated title",
+        ambiguous: "Multiple candidates could not be disambiguated",
+        content_verification_failed: "Content-level verification failed",
+        unresolved: "Publication identity could not be confirmed",
+        pending: "Awaiting remote identification",
+        deferred: "Remote identification deferred",
+        api_error: "Crossref API request failed"
+    };
+
     const $ = selector => modal?.querySelector(selector);
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -168,6 +212,54 @@ const ScholarAnalyticsUI = (() => {
         if (className) el.className = className;
         if (text !== null) el.textContent = String(text);
         return el;
+    }
+
+    function createPublicationTypeLabel(p) {
+        const type = ScholarAnalytics.getPublicationType(p);
+        const status = ScholarAnalytics.getIdentificationStatus(p);
+        if (type === "unknown" && status === "pending")
+            return makeEl("span", "", "Pending");
+        const label = makeEl("span", "", PUBLICATION_TYPE_LABELS[type] || type);
+        if (p.journalIdentity?.type)
+            label.title = `Crossref type: ${p.journalIdentity.type}`;
+        return label;
+    }
+
+    function createIdentificationLabel(p) {
+        const status = ScholarAnalytics.getIdentificationStatus(p);
+        const reason = ScholarAnalytics.getVerificationReason(p);
+        const identity = p.journalIdentity;
+        const label = makeEl("span", "", IDENTIFICATION_LABELS[status] || status);
+        const colors = {
+            verified: "#137333",
+            local_verified: "#137333",
+            pending: "#1967d2",
+            deferred: "#687585",
+            ambiguous: "#b06000",
+            unresolved: "#687585",
+            api_error: "#b3261e"
+        };
+        label.style.color = colors[status] || "#687585";
+        label.style.fontWeight = "500";
+        label.style.whiteSpace = "nowrap";
+        label.title = [
+            VERIFICATION_REASON_LABELS[reason] || reason,
+            identity?.method ? `Method: ${identity.method}` : null,
+            identity?.title_match ? `Title match: ${identity.title_match}` : null,
+            identity?.doi ? `DOI: ${identity.doi}` : null
+        ].filter(Boolean).join("\n");
+        return label;
+    }
+
+    function createJCRStatusLabel(p) {
+        const status = ScholarAnalytics.getJCRStatus(p);
+        const label = makeEl("span", "", JCR_STATUS_LABELS[status] || status);
+        label.style.whiteSpace = "nowrap";
+        label.style.color = status === "available" ? "#137333" : "#687585";
+        label.title = status === "not_in_database"
+            ? "Journal identified but absent from the current local JCR database"
+            : JCR_STATUS_LABELS[status] || status;
+        return label;
     }
 
     function createFilterPanel() {
@@ -1097,6 +1189,7 @@ const ScholarAnalyticsUI = (() => {
         const target = $(".sja-tab-content");
         const publications = analysis.publications;
         let query = "", sortKey = "citations", ascending = false;
+        let identificationFilter = "all", jcrFilter = "all";
         let page = 1, pageSize = 25;
         let filtered = [];
         const card = createChartCard(
@@ -1128,7 +1221,37 @@ const ScholarAnalyticsUI = (() => {
             page = 1;
             renderTable();
         };
-        controls.append(search, sort, direction);
+        const identificationSelect = createSelect([
+            ["all", "All identification statuses"],
+            ["verified", "Crossref verified"],
+            ["local_verified", "Local matched"],
+            ["pending", "Pending"],
+            ["deferred", "Deferred"],
+            ["ambiguous", "Ambiguous"],
+            ["unresolved", "Unresolved"],
+            ["api_error", "API error"]
+        ], identificationFilter, value => {
+            identificationFilter = value;
+            page = 1;
+            renderTable();
+        });
+        const jcrSelect = createSelect([
+            ["all", "All JCR statuses"],
+            ["available", "JCR available"],
+            ["not_in_database", "Not in database"],
+            ["not_applicable", "Not applicable"],
+            ["pending", "Pending"],
+            ["deferred", "Deferred"],
+            ["api_error", "API error"],
+            ["unknown", "Unknown"]
+        ], jcrFilter, value => {
+            jcrFilter = value;
+            page = 1;
+            renderTable();
+        });
+        identificationSelect.setAttribute("aria-label", "Identification status");
+        jcrSelect.setAttribute("aria-label", "JCR availability");
+        controls.append(search, sort, direction, identificationSelect, jcrSelect);
         const tableContent = makeEl("div");
         const footer = makeEl("div", "sja-pagination");
         const count = makeEl("span", "sja-pagination-count");
@@ -1212,11 +1335,22 @@ const ScholarAnalyticsUI = (() => {
         function renderTable() {
             const q = query.toLowerCase();
             filtered = publications.filter(p => {
+                if (identificationFilter !== "all" &&
+                    ScholarAnalytics.getIdentificationStatus(p) !== identificationFilter)
+                    return false;
+                if (jcrFilter !== "all" &&
+                    ScholarAnalytics.getJCRStatus(p) !== jcrFilter)
+                    return false;
                 const text = [
                     p.title, p.authors,
                     ScholarAnalytics.getJournal(p),
                     p.journalIdentity?.journal,
-                    p.journal
+                    p.journal,
+                    p.journalIdentity?.doi,
+                    p.journalIdentity?.verification_reason,
+                    ScholarAnalytics.getVerificationReason(p),
+                    ScholarAnalytics.getIdentificationStatus(p),
+                    ScholarAnalytics.getJCRStatus(p)
                 ].filter(Boolean).join(" ").toLowerCase();
                 return !q || text.includes(q);
             }).sort(compare);
@@ -1234,15 +1368,23 @@ const ScholarAnalyticsUI = (() => {
                 const citations = p.citations == null
                     ? "—" : createLink(fmt(p.citations, 0), p.citationUrl);
                 return [
-                    start + i + 1, publication, journal,
-                    p.year || "—", fmt(ScholarAnalytics.getIF(p)),
-                    ScholarAnalytics.getQuartile(p), citations,
+                    start + i + 1,
+                    publication,
+                    journal,
+                    p.year || "—",
+                    createPublicationTypeLabel(p),
+                    createIdentificationLabel(p),
+                    fmt(ScholarAnalytics.getIF(p)),
+                    ScholarAnalytics.getQuartile(p),
+                    createJCRStatusLabel(p),
+                    citations,
                     fmt(ScholarAnalytics.getCitationsPerYear(p))
                 ];
             });
             tableContent.replaceChildren(createTable([
-                "#", "Publication", "Journal", "Year", "IF",
-                "JCR", "Citations", "Cites/year"
+                "#", "Publication", "Journal", "Year", "Type",
+                "Identification", "IF", "JCR", "JCR status",
+                "Citations", "Cites/year"
             ], rows));
             if (!rows.length)
                 tableContent.appendChild(makeEl("div", "sja-empty", "No matching publications."));
@@ -1353,16 +1495,28 @@ const ScholarAnalyticsUI = (() => {
             `${fromCache ? "Cached profile" : "Freshly collected"} · ${new Date(data.collectedAt).toLocaleString()}`;
 
         const warnings = [];
+        const identificationCounts = {};
+        for (const p of data.publications) {
+            const key = ScholarAnalytics.getIdentificationStatus(p);
+            identificationCounts[key] = (identificationCounts[key] || 0) + 1;
+        }
+        const missingJCR = data.publications.filter(p =>
+            ScholarAnalytics.getJCRStatus(p) === "not_in_database"
+        ).length;
         if (!data.complete)
             warnings.push("The publication list is incomplete.");
-        if (data.stats?.pending)
-            warnings.push(`${data.stats.pending} publications are awaiting identification.`);
-        if (data.stats?.apiErrors)
-            warnings.push(`${data.stats.apiErrors} remote lookups failed.`);
-        if (data.stats?.deferred)
-            warnings.push(`${data.stats.deferred} remote lookups were deferred.`);
-        if (data.stats?.unresolved)
-            warnings.push(`${data.stats.unresolved} publications have unresolved journal identities.`);
+        if (identificationCounts.pending)
+            warnings.push(`${identificationCounts.pending} publications are awaiting identification.`);
+        if (identificationCounts.api_error)
+            warnings.push(`${identificationCounts.api_error} remote lookups failed.`);
+        if (identificationCounts.deferred)
+            warnings.push(`${identificationCounts.deferred} remote lookups were deferred.`);
+        if (identificationCounts.ambiguous)
+            warnings.push(`${identificationCounts.ambiguous} publications have ambiguous identities.`);
+        if (identificationCounts.unresolved)
+            warnings.push(`${identificationCounts.unresolved} publications could not be identified.`);
+        if (missingJCR)
+            warnings.push(`${missingJCR} publications were identified but their journals are not in the current JCR database.`);
         if (warnings.length) {
             const warning = $(".sja-data-warning");
             warning.hidden = false;
